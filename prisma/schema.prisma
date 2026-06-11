@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  sortOrder Int       @default(0)
+  products  Product[]
+}
+
+model Product {
+  id         Int             @id @default(autoincrement())
+  categoryId Int
+  category   Category        @relation(fields: [categoryId], references: [id])
+  name       String
+  brand      String?
+  specs      String?
+  notes      String?
+  isActive   Boolean         @default(true)
+  items      QuotationItem[]
+}
+
+model Quotation {
+  id            Int             @id @default(autoincrement())
+  refNumber     String          @unique
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  quotationDate DateTime
+  grandTotal    Float
+  createdAt     DateTime        @default(now())
+  items         QuotationItem[]
+}
+
+model QuotationItem {
+  id                  Int       @id @default(autoincrement())
+  quotationId         Int
+  quotation           Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId           Int?
+  product             Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productNameSnapshot String
+  categorySnapshot    String
+  brandSnapshot       String?
+  unitPrice           Float
+  quantity            Int       @default(1)
+  lineTotal           Float
+}

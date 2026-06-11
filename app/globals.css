@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .input {
+    @apply border border-gray-300 rounded px-3 py-2 text-sm w-full bg-white focus:outline-none focus:ring-1 focus:ring-gray-400;
+  }
+  .btn-primary {
+    @apply bg-gray-900 text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-700 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply border border-gray-300 rounded px-4 py-2 text-sm font-medium bg-white hover:bg-gray-100;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}

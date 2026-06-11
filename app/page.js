@@ -150,7 +150,7 @@ export default function BuilderPage() {
           className="input"
           type="number"
           min="0"
-          placeholder="Selling price (\u20b9)"
+          placeholder="Selling price (₹)"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />

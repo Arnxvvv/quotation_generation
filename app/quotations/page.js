@@ -1,52 +1,76 @@
+"use client";
+
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { useEffect, useState } from "react";
 import { formatINR } from "@/lib/format";
 
-export const dynamic = "force-dynamic";
+export default function QuotationsPage() {
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function QuotationsPage() {
-  const quotations = await prisma.quotation.findMany({ orderBy: { createdAt: "desc" } });
+  async function loadQuotations() {
+    const res = await fetch("/api/quotations");
+    setQuotations(await res.json());
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadQuotations();
+  }, []);
+
+  async function remove(id, refNumber) {
+    if (!confirm(`Delete quotation ${refNumber}? This cannot be undone.`)) return;
+    await fetch(`/api/quotations/${id}`, { method: "DELETE" });
+    loadQuotations();
+  }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">Quotations</h1>
-      <div className="bg-white border border-gray-200 rounded overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500">
-              <th className="p-2">Ref No.</th>
-              <th className="p-2">Customer</th>
-              <th className="p-2">Phone</th>
-              <th className="p-2">Date</th>
-              <th className="p-2 text-right">Total</th>
-              <th className="p-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {quotations.length === 0 && (
-              <tr>
-                <td colSpan="6" className="p-4 text-center text-gray-400">
-                  No quotations yet.
-                </td>
+    <div className="space-y-5">
+      <h1 className="text-lg font-semibold">Quotations</h1>
+
+      {loading ? (
+        <p className="text-gray-400 text-sm">Loading…</p>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                <th className="px-4 py-3">Ref No.</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3"></th>
               </tr>
-            )}
-            {quotations.map((q) => (
-              <tr key={q.id} className="border-t border-gray-100">
-                <td className="p-2 font-medium">{q.refNumber}</td>
-                <td className="p-2">{q.customerName}</td>
-                <td className="p-2">{q.customerPhone}</td>
-                <td className="p-2">{new Date(q.quotationDate).toLocaleDateString("en-IN")}</td>
-                <td className="p-2 text-right">{formatINR(q.grandTotal)}</td>
-                <td className="p-2 text-right">
-                  <Link className="text-blue-600 hover:underline" href={`/quotations/${q.id}`}>
-                    View / Print
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {quotations.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="px-4 py-8 text-center text-gray-300 text-sm">
+                    No quotations yet.
+                  </td>
+                </tr>
+              )}
+              {quotations.map((q) => (
+                <tr key={q.id} className="border-t border-gray-50">
+                  <td className="px-4 py-3 font-medium">{q.refNumber}</td>
+                  <td className="px-4 py-3 text-gray-500">{new Date(q.quotationDate).toLocaleDateString("en-IN")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium">{formatINR(q.grandTotal)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <Link className="action-link-blue mr-3" href={`/quotations/${q.id}`}>
+                      View
+                    </Link>
+                    <button
+                      onClick={() => remove(q.id, q.refNumber)}
+                      className="action-link-red"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatINR } from "@/lib/format";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function BuilderPage() {
   const router = useRouter();
@@ -13,7 +14,6 @@ export default function BuilderPage() {
   const [price, setPrice] = useState("");
   const [qty, setQty] = useState("1");
   const [items, setItems] = useState([]);
-  const [grandTotal, setGrandTotal] = useState(null);
   const [customer, setCustomer] = useState({
     name: "",
     phone: "",
@@ -21,16 +21,30 @@ export default function BuilderPage() {
     date: new Date().toISOString().slice(0, 10),
   });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/categories").then((r) => r.json()).then(setCategories);
-    fetch("/api/products").then((r) => r.json()).then(setProducts);
+    Promise.all([
+      fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/products").then((r) => r.json()),
+    ])
+      .then(([cats, prods]) => {
+        setCategories(cats);
+        setProducts(prods);
+      })
+      .catch(() => setError("Failed to load data. Please refresh."))
+      .finally(() => setLoading(false));
   }, []);
 
   const categoryProducts = useMemo(
     () => products.filter((p) => String(p.categoryId) === String(categoryId)),
     [products, categoryId]
+  );
+
+  const grandTotal = useMemo(
+    () => items.reduce((sum, it) => sum + it.lineTotal, 0),
+    [items]
   );
 
   function addItem() {
@@ -41,38 +55,47 @@ export default function BuilderPage() {
     if (!product) return setError("Select a category and product.");
     if (!unitPrice || unitPrice <= 0) return setError("Enter a valid selling price.");
     if (!quantity || quantity <= 0) return setError("Enter a valid quantity.");
-    const category = categories.find((c) => c.id === product.categoryId);
-    setItems([
-      ...items,
-      {
-        productId: product.id,
-        productName: product.name,
-        brand: product.brand || "",
-        categoryName: category ? category.name : "",
-        unitPrice,
-        quantity,
-        lineTotal: unitPrice * quantity,
-      },
-    ]);
+
+    // Check for duplicate — same product and same price → bump quantity
+    const existingIndex = items.findIndex(
+      (it) => it.productId === product.id && it.unitPrice === unitPrice
+    );
+
+    if (existingIndex !== -1) {
+      const updated = [...items];
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        quantity: updated[existingIndex].quantity + quantity,
+        lineTotal: (updated[existingIndex].quantity + quantity) * unitPrice,
+      };
+      setItems(updated);
+    } else {
+      const category = categories.find((c) => c.id === product.categoryId);
+      setItems([
+        ...items,
+        {
+          productId: product.id,
+          productName: product.name,
+          brand: product.brand || "",
+          categoryName: category ? category.name : "",
+          unitPrice,
+          quantity,
+          lineTotal: unitPrice * quantity,
+        },
+      ]);
+    }
+
     setProductId("");
     setPrice("");
     setQty("1");
-    setGrandTotal(null);
   }
 
   function removeItem(index) {
     setItems(items.filter((_, i) => i !== index));
-    setGrandTotal(null);
-  }
-
-  function generateTotal() {
-    setGrandTotal(items.reduce((sum, it) => sum + it.lineTotal, 0));
   }
 
   async function saveQuotation() {
     setError("");
-    if (!customer.name.trim() || !customer.phone.trim())
-      return setError("Customer name and phone are required.");
     if (items.length === 0) return setError("Add at least one component.");
     setSaving(true);
     try {
@@ -91,61 +114,29 @@ export default function BuilderPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-bold">New Quotation</h1>
+    <div className="space-y-5">
+      <h1 className="text-lg font-semibold">New Quotation</h1>
 
-      <div className="bg-white border border-gray-200 rounded p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <input
-          className="input"
-          placeholder="Customer name *"
-          value={customer.name}
-          onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-        />
-        <input
-          className="input"
-          placeholder="Phone *"
-          value={customer.phone}
-          onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-        />
-        <input
-          className="input"
-          placeholder="Email (optional)"
-          value={customer.email}
-          onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
-        />
-        <input
-          className="input"
-          type="date"
-          value={customer.date}
-          onChange={(e) => setCustomer({ ...customer, date: e.target.value })}
-        />
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <select
-          className="input"
+      {/* Add component row */}
+      <div className="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <SearchableSelect
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
           value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
+          onChange={(val) => {
+            setCategoryId(val);
             setProductId("");
           }}
-        >
-          <option value="">Category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
-          <option value="">Product</option>
-          {categoryProducts.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.brand ? p.brand + " " : ""}
-              {p.name}
-            </option>
-          ))}
-        </select>
+          placeholder={loading ? "Loading…" : "Category"}
+        />
+        <SearchableSelect
+          options={categoryProducts.map((p) => ({
+            value: p.id,
+            label: (p.brand ? p.brand + " " : "") + p.name,
+          }))}
+          value={productId}
+          onChange={setProductId}
+          placeholder={loading ? "Loading…" : categoryId ? "Product" : "Select category first"}
+        />
         <input
           className="input"
           type="number"
@@ -162,45 +153,46 @@ export default function BuilderPage() {
           value={qty}
           onChange={(e) => setQty(e.target.value)}
         />
-        <button onClick={addItem} className="btn-primary">
+        <button onClick={addItem} disabled={loading} className="btn-primary">
           Add to Build
         </button>
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      <div className="bg-white border border-gray-200 rounded overflow-x-auto">
+      {/* Items table */}
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-gray-500">
-              <th className="p-2">Category</th>
-              <th className="p-2">Component</th>
-              <th className="p-2 text-right">Unit Price</th>
-              <th className="p-2 text-center">Qty</th>
-              <th className="p-2 text-right">Total</th>
-              <th className="p-2"></th>
+            <tr className="text-left text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100">
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Component</th>
+              <th className="px-4 py-3 text-right">Unit Price</th>
+              <th className="px-4 py-3 text-center">Qty</th>
+              <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan="6" className="p-4 text-center text-gray-400">
+                <td colSpan="6" className="px-4 py-8 text-center text-gray-300 text-sm">
                   No components added yet.
                 </td>
               </tr>
             )}
             {items.map((it, i) => (
-              <tr key={i} className="border-t border-gray-100">
-                <td className="p-2">{it.categoryName}</td>
-                <td className="p-2 font-medium">
+              <tr key={i} className="border-t border-gray-50">
+                <td className="px-4 py-3 text-gray-500">{it.categoryName}</td>
+                <td className="px-4 py-3 font-medium">
                   {it.brand ? it.brand + " " : ""}
                   {it.productName}
                 </td>
-                <td className="p-2 text-right">{formatINR(it.unitPrice)}</td>
-                <td className="p-2 text-center">{it.quantity}</td>
-                <td className="p-2 text-right">{formatINR(it.lineTotal)}</td>
-                <td className="p-2 text-center">
-                  <button onClick={() => removeItem(i)} className="text-red-600 hover:underline">
+                <td className="px-4 py-3 text-right tabular-nums">{formatINR(it.unitPrice)}</td>
+                <td className="px-4 py-3 text-center tabular-nums">{it.quantity}</td>
+                <td className="px-4 py-3 text-right tabular-nums font-medium">{formatINR(it.lineTotal)}</td>
+                <td className="px-4 py-3 text-center">
+                  <button onClick={() => removeItem(i)} className="action-link-red">
                     Remove
                   </button>
                 </td>
@@ -210,15 +202,17 @@ export default function BuilderPage() {
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <button onClick={generateTotal} className="btn-secondary">
-          Generate Total
-        </button>
-        {grandTotal !== null && (
-          <span className="text-lg font-bold">Grand Total: {formatINR(grandTotal)}</span>
-        )}
-        <button onClick={saveQuotation} disabled={saving} className="btn-primary ml-auto">
-          {saving ? "Saving..." : "Save Quotation"}
+      {/* Footer */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          {items.length > 0 && (
+            <span className="text-lg font-semibold tabular-nums">
+              Grand Total: {formatINR(grandTotal)}
+            </span>
+          )}
+        </div>
+        <button onClick={saveQuotation} disabled={saving || items.length === 0} className="btn-primary">
+          {saving ? "Saving…" : "Save Quotation"}
         </button>
       </div>
     </div>

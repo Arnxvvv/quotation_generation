@@ -9,12 +9,7 @@ export async function GET() {
 export async function POST(req) {
   const { customer, items } = await req.json();
 
-  if (!customer?.name?.trim() || !customer?.phone?.trim()) {
-    return NextResponse.json(
-      { error: "Customer name and phone are required." },
-      { status: 400 }
-    );
-  }
+
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
       { error: "At least one component is required." },
@@ -36,10 +31,10 @@ export async function POST(req) {
   const quotation = await prisma.quotation.create({
     data: {
       refNumber,
-      customerName: customer.name.trim(),
-      customerPhone: customer.phone.trim(),
-      customerEmail: customer.email?.trim() || null,
-      quotationDate: new Date(customer.date || Date.now()),
+      customerName: customer?.name?.trim() || "",
+      customerPhone: customer?.phone?.trim() || "",
+      customerEmail: customer?.email?.trim() || null,
+      quotationDate: new Date(customer?.date || Date.now()),
       grandTotal,
       items: {
         create: items.map((it) => ({

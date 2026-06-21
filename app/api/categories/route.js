@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const categories = await prisma.category.findMany({ orderBy: { sortOrder: "asc" } });
   return NextResponse.json(categories);

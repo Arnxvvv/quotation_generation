@@ -12,6 +12,7 @@ export default function WordQuotationPage() {
   const [price, setPrice] = useState("");
   const [qty, setQty] = useState("1");
   const [items, setItems] = useState([]);
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -102,7 +103,7 @@ export default function WordQuotationPage() {
       const res = await fetch("/api/generate-quotation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, companyName: companyName.trim() }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -130,6 +131,17 @@ export default function WordQuotationPage() {
           Build a quotation and download it as a Word document with your company letterhead.
           Prices entered are <strong>with GST (18%)</strong> — the document auto-calculates the breakup.
         </p>
+      </div>
+
+      {/* Company Name */}
+      <div className="card p-4">
+        <label className="block text-xs font-medium text-gray-500 mb-1.5">Company / Client Name (for the quotation &ldquo;To&rdquo; field)</label>
+        <input
+          className="input max-w-md"
+          placeholder="e.g. Alliance Associates"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+        />
       </div>
 
       {/* Add item row */}

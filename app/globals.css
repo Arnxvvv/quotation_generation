@@ -89,6 +89,12 @@ tbody tr:hover {
 }
 
 @media print {
+  @page {
+    margin-top: 10mm;
+    margin-bottom: 10mm;
+    margin-left: 10mm;
+    margin-right: 10mm;
+  }
   .no-print {
     display: none !important;
   }

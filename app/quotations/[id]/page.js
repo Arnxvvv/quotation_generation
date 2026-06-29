@@ -6,8 +6,9 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export default async function QuotationDetailPage({ params }) {
+  const { id } = await params;
   const quotation = await prisma.quotation.findUnique({
-    where: { id: Number(params.id) },
+    where: { id: Number(id) },
     include: { items: true },
   });
   if (!quotation) notFound();
